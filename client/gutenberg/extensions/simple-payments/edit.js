@@ -14,6 +14,7 @@ import { sprintf } from '@wordpress/i18n';
 import {
 	Disabled,
 	ExternalLink,
+	Notice,
 	PanelBody,
 	SelectControl,
 	TextareaControl,
@@ -47,17 +48,17 @@ class SimplePaymentsEdit extends Component {
 	}
 
 	componentDidUpdate( prevProps ) {
-		const { isSelected } = this.props;
+		const { hasPublishAction, isSelected } = this.props;
 
 		if ( prevProps.simplePayment !== this.props.simplePayment ) {
 			this.injectPaymentAttributes();
 		}
 
-		if ( prevProps.isSelected && ! isSelected ) {
+		if ( prevProps.isSelected && ! isSelected && hasPublishAction ) {
 			// Validate and save on block deselect
 
 			this.saveProduct();
-		} else if ( ! prevProps.isSaving && this.props.isSaving ) {
+		} else if ( ! prevProps.isSaving && this.props.isSaving && hasPublishAction ) {
 			// Save payment on post save
 
 			this.saveProduct();
@@ -115,7 +116,7 @@ class SimplePaymentsEdit extends Component {
 		this.setState( { isSavingProduct: true }, async () => {
 			saveEntityRecord( 'postType', SIMPLE_PAYMENTS_PRODUCT_POST_TYPE, this.toApi() )
 				.then( record => {
-					setAttributes( { paymentId: record.id } );
+					record && setAttributes( { paymentId: record.id } );
 				} )
 				.catch( error => {
 					// @TODO: complete error handling
@@ -328,7 +329,7 @@ class SimplePaymentsEdit extends Component {
 
 	render() {
 		const { fieldEmailError, fieldPriceError, fieldTitleError } = this.state;
-		const { attributes, instanceId, isSelected, simplePayment } = this.props;
+		const { attributes, hasPublishAction, instanceId, isSelected, simplePayment } = this.props;
 		const { content, currency, email, multiple, paymentId, price, title } = attributes;
 
 		const isLoading = paymentId && ! simplePayment;
@@ -365,7 +366,7 @@ class SimplePaymentsEdit extends Component {
 			);
 		}
 
-		const Wrapper = isLoading ? Disabled : 'div';
+		const Wrapper = isLoading || ! hasPublishAction ? Disabled : 'div';
 
 		return (
 			<Wrapper className="wp-block-jetpack-simple-payments">
@@ -376,6 +377,16 @@ class SimplePaymentsEdit extends Component {
 						</ExternalLink>
 					</PanelBody>
 				</InspectorControls>
+
+				{ ! hasPublishAction && (
+					<Notice
+						className="simple-payments__permissions-notice"
+						status="warning"
+						isDismissible={ false }
+					>
+						{ __( 'You cannot modify Simple payment if you cannot publish posts.' ) }
+					</Notice>
+				) }
 
 				<TextControl
 					aria-describedby={ `${ instanceId }-title-error` }
@@ -465,7 +476,7 @@ class SimplePaymentsEdit extends Component {
 
 const mapSelectToProps = withSelect( ( select, props ) => {
 	const { getEntityRecord } = select( 'core' );
-	const { isSavingPost } = select( 'core/editor' );
+	const { isSavingPost, getCurrentPost } = select( 'core/editor' );
 
 	const { paymentId } = props.attributes;
 
@@ -474,6 +485,7 @@ const mapSelectToProps = withSelect( ( select, props ) => {
 		: undefined;
 
 	return {
+		hasPublishAction: get( getCurrentPost(), [ '_links', 'wp:action-publish' ], false ),
 		isSaving: !! isSavingPost(),
 		simplePayment,
 	};
