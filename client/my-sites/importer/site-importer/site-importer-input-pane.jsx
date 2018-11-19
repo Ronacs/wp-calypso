@@ -314,7 +314,13 @@ class SiteImporterInputPane extends React.Component {
 				],
 			} )
 			.then( resp => {
-				this.setState( { loading: false } );
+				// forcePreviewLoadingState here is a hack-around of an issue where
+				// we would otherwise see a flicker of the site preview.
+				this.setState( { loading: false, forcePreviewLoadingState: true } );
+
+				// Here we reset that state to avoid another bug where the backend importer state
+				// gets stuck. Without reseting we'd see the spinner persist.
+				setTimeout( () => this.setState( { forcePreviewLoadingState: false } ), 500 );
 
 				this.props.recordTracksEvent( 'calypso_site_importer_start_import_success', {
 					blog_id: this.props.site.ID,
@@ -420,7 +426,7 @@ class SiteImporterInputPane extends React.Component {
 						<SiteImporterSitePreview
 							siteURL={ this.state.importSiteURL }
 							importData={ this.state.importData }
-							isLoading={ this.state.loading }
+							isLoading={ this.state.loading || this.state.forcePreviewLoadingState }
 							resetImport={ this.resetImport }
 							startImport={ this.importSite }
 							site={ this.props.site }
